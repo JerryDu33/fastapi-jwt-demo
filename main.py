@@ -9,20 +9,20 @@ from passlib.context import CryptContext
 
 app = FastAPI(title="FastAPI + JWT Demo")
 
-# ================== 配置部分 ==================
-# 实际项目中，请把 SECRET_KEY 换成一个很长很随机的字符串，并放到环境变量里
+# ================== Configuration Section ==================
+
 SECRET_KEY = "change_me_to_a_random_long_string"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Token 有效时间 60 分钟
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Token time 60 
 
-# 密码哈希工具
+# Password hashing tool
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# 告诉 FastAPI：我们的 token 是通过 /login 接口获取的
+# The token is obtained through the /login interface
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-# ================== Pydantic 模型 ==================
+# ================== Pydantic Model ==================
 class UserIn(BaseModel):
     username: str
     full_name: Optional[str] = None
@@ -48,14 +48,14 @@ class TokenData(BaseModel):
     username: Optional[str] = None
 
 
-# ================== 假装的数据库（内存） ==================
+# ================== Database ==================
 fake_users_db: Dict[str, UserInDB] = {}
 next_user_id = 1
 
 fake_todos_db: Dict[int, List[dict]] = {}
 
 
-# ================== 工具函数 ==================
+# ================== Utility function ==================
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -79,7 +79,7 @@ def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
-    data 通常会包含 {"sub": username}
+    data  {"sub": username}
     """
     to_encode = data.copy()
     if expires_delta:
@@ -93,7 +93,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-# ================== 依赖：从 token 中拿当前用户 ==================
+# ================== Dependency: Take the current user from the token ==================
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -101,7 +101,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # 解码 token
+        # Decoding token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -116,13 +116,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     return user
 
 
-# ================== 注册 & 登录 ==================
+# ================== Registration & Login ==================
 @app.post("/register", response_model=User)
 def register(user_in: UserIn):
     """
-    注册接口：
-    - 检查用户名是否已存在
-    - 存储 hash 后的密码
+    Registration interface
+    - Check if the username already exists
+    - Store the hash of the password
     """
     global next_user_id
 
@@ -145,9 +145,9 @@ def register(user_in: UserIn):
 @app.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """
-    登录接口：
-    - 使用表单字段 username, password
-    - 成功后返回 access_token
+    Login interface：
+    -  username, password
+    - turn back access_token
     """
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -159,18 +159,18 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username},  # 这里把 username 放进去，之后可从 token 里读出来
+        data={"sub": user.username},  # Put the username in here, and it can be read out from the token later
         expires_delta=access_token_expires,
     )
 
     return Token(access_token=access_token, token_type="bearer")
 
 
-# ================== 示例接口：使用当前登录用户 ==================
+# ================== Use the currently logged-in user ==================
 @app.get("/users/me", response_model=User)
 async def read_users_me(current_user: UserInDB = Depends(get_current_user)):
     """
-    获取当前登录用户信息
+    Update information
     """
     return User(
         id=current_user.id,
@@ -179,7 +179,7 @@ async def read_users_me(current_user: UserInDB = Depends(get_current_user)):
     )
 
 
-# 更新当前登录用户信息
+# Update the information of the currently logged-in user
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
 
@@ -200,7 +200,7 @@ async def update_me(
     )
 
 
-# ================== 示例：用当前用户做 todo（代替 /users/{user_id}/todos） ==================
+# ================== Use the current user as todo (instead of /users/{user_id}/todos) ==================
 class TodoIn(BaseModel):
     content: str
 
@@ -216,7 +216,7 @@ async def create_todo(
     current_user: UserInDB = Depends(get_current_user),
 ):
     """
-    创建当前登录用户的 todo
+    Create the todo of the currently logged-in user
     """
     user_id = current_user.id
     if user_id not in fake_todos_db:
@@ -233,7 +233,7 @@ async def list_todos(
     current_user: UserInDB = Depends(get_current_user),
 ):
     """
-    获取当前登录用户的所有 todo
+    Obtain all Todos of the currently logged-in user
     """
     user_id = current_user.id
     todos = fake_todos_db.get(user_id, [])
